@@ -303,7 +303,7 @@ See [`examples/README.md`](examples/README.md) for details.
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone <this-repo> ComfyUI-Illustrious-Selector
+git clone https://github.com/jing83506-lab/ComfyUI-Illustrious-Selector
 ```
 
 **No extra Python dependencies** (only torch / numpy / Pillow that ship with ComfyUI).
