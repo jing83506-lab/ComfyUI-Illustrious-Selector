@@ -494,11 +494,12 @@ class IllustriousExpressionSheet:
             im.save(os.path.join(root, name), "JPEG", quality=q, optimize=True)
             return "%s|%d|%d" % (name, im.width, im.height)
 
-        # 主图和差分都放到 1280 长边：切换差分时看到的清晰度和主图一致
+        # 主图和差分都放到 1536 长边（约 1.4MP）：切换差分时清晰度和主图一致。
+        # 这些文件在 temp 里，不进工作流 JSON，所以分辨率可以放心给大。
         out = {"dir": rel.replace("\\", "/"),
-               "main": save(main_img, "main.jpg", 1280, 90),
-               "vars": [save(v, "var_%02d.jpg" % i, 1280, 90) for i, v in enumerate(fulls)],
-               "thumbs": [save(t, "thumb_%02d.jpg" % i, 384, 90) for i, t in enumerate(thumbs)],
+               "main": save(main_img, "main.jpg", 1536, 92),
+               "vars": [save(v, "var_%02d.jpg" % i, 1536, 92) for i, v in enumerate(fulls)],
+               "thumbs": [save(t, "thumb_%02d.jpg" % i, 512, 90) for i, t in enumerate(thumbs)],
                "canvas": [int(W), int(H)],
                "rects": rects,
                "border": int(border),

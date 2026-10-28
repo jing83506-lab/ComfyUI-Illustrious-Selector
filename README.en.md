@@ -184,7 +184,7 @@ The first two are already implemented. The approach is **assets on disk, manifes
 - On reload the images are fetched via `/api/view?filename=...&type=temp`
 
 So clarity is no longer limited by workflow size: the main image and the variations are both
-stored at a **1280 px long side (~0.9 MP)**, which means switching a variation looks exactly
+stored at a **1536 px long side (~1.4 MP)**, which means switching a variation looks exactly
 as sharp as the main image.
 
 The trade-off: once the `temp` directory is cleaned up (usually after restarting ComfyUI) the
