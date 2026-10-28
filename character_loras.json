@@ -1,0 +1,66 @@
+{
+"鯊魚子": {
+"lora": "SamekoSaba-AndroidXL",
+"weight": 0.97
+},
+"橘希望 (蔚藍檔案)": {
+"lora": "Nozomi(ba)-Illus",
+"weight": 1.0
+},
+"橘希望(蔚藍檔案)": {
+"lora": "Nozomi(ba)-Illus",
+"weight": 0.97
+},
+"笑面教授": {
+"lora": "niya",
+"weight": 1.3
+},
+"利貝爾": {
+"lora": "libelKurustar",
+"weight": 0.97
+},
+"大肥鱼": {
+"lora": "deepseek_maid_outfit_illustrious_v10",
+"weight": 1.0
+},
+"塞西莉亞": {
+"lora": "baishaoji-000014",
+"weight": 1.0
+},
+"gpt老師": {
+"lora": "gpt_illi_v1",
+"weight": 1.0
+},
+"gem老師": {
+"lora": "gem_illi_v1",
+"weight": 1.0
+},
+"Claude老師": {
+"lora": "claude_illi_v5",
+"weight": 1.0
+},
+"長風(碧藍航線)": {
+"lora": "chang_feng_cozy_spring_cleaning_azur_lane_for_IL-000010",
+"weight": 1.0
+},
+"千夏(絕區零)": {
+"lora": "Char-ZZZ-Sunna-V1-IL",
+"weight": 1.0
+},
+"菲比(鳴潮)": {
+"lora": "c_phoebe (wuthering waves)_nbe11_xl",
+"weight": 1.0
+},
+"橘雪梨": {
+"lora": "juzi-000010",
+"weight": 0.9
+},
+"火花(崩壞：星穹鐵道)": {
+"lora": "E781ABE88AB1000006.xK7e",
+"weight": 0.9
+},
+"達尼亞(鳴潮)": {
+"lora": "deniaV2-000005",
+"weight": 0.9
+}
+}
