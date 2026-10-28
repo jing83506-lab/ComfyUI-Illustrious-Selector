@@ -173,13 +173,24 @@ variation on its own.
 
 | Requirement | Works? | How / why |
 |---|---|---|
-| Still **visible** after switching workflows | ✅ | The assets are compressed into small images and stored in the node's `properties`; the view is rebuilt on load |
+| Still **visible** after switching workflows | ✅ | Assets are written to the `temp` directory; the node's `properties` keeps only a filename manifest and reloads by URL |
 | Still **clickable** after switching, and switching the image immediately | ✅ | What's stored isn't just a screenshot but the **separated assets**: main image + each variation + each thumbnail + layout rectangles |
 | Click and **write a file without running** | ❌ | ComfyUI's outputs must come from an execution; a node has no ability to "write files" |
 
-The first two are already implemented. The cost is that each sheet node adds
-**120–200 KB** to the workflow JSON (main image 640px, variations 384px, thumbnails 192px,
-JPEG q0.72). It uses no VRAM and doesn't affect generation speed.
+The first two are already implemented. The approach is **assets on disk, manifest in the JSON**:
+
+- The backend writes the main image / variations / thumbnails as JPEG into `temp/illustrious_sheet/<node id>/`
+- `properties` keeps only a manifest of about **0.6 KB**
+- On reload the images are fetched via `/api/view?filename=...&type=temp`
+
+So clarity is no longer limited by workflow size: the main image and the variations are both
+stored at a **1280 px long side (~0.9 MP)**, which means switching a variation looks exactly
+as sharp as the main image.
+
+The trade-off: once the `temp` directory is cleaned up (usually after restarting ComfyUI) the
+snapshot is gone and the node falls back to the schematic layout — one run restores it.
+(An earlier version embedded base64 directly in the JSON: 85 KB for 640px, 180 KB for 1MP,
+easily over 1 MB with five variations — that's why it was replaced.)
 
 A freshly dropped node that hasn't run yet displays a **schematic layout**
 (main image on the left / a column of 5 cells on the right, one cell highlighted

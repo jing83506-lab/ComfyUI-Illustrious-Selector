@@ -362,92 +362,55 @@ app.registerExtension({
         }
         load(message?.preview?.[0], (im) => {
           st._fallbackImg = im;
-          persistSnapshot();
+          // 后端把素材写进 temp 目录，这里只存清单（几百字节）
+          persistSnap(message?.snap?.[0]);
         });
       };
 
       // ---------------------------------------------------------------
       // 快照持久化：让拼版在「切换工作流之后」依然有图、依然能点
       //
-      // ComfyUI 的自定义节点每次执行只把 ui 数据推给前端，不写进工作流；
-      // 而节点 JSON 里唯一会被保存的是 widgets_values 和 properties。
-      // 所以把所需素材（主图 / 各差分 / 小图 / 布局矩形）压成小图存进
-      // properties —— 重新打开工作流时能原样重建，点选也立刻有反馈。
+      // ComfyUI 每次执行只把 ui 数据推给前端，不写进工作流；节点 JSON 里
+      // 只有 widgets_values 和 properties 会被保存。而把图片 base64 塞进
+      // properties 会把工作流撑爆 —— 实测 640px 主图就 85 KB，1MP 要 180 KB，
+      // 再加 5 张同清晰度的差分就超过 1 MB。
       //
-      // 代价：工作流 JSON 每个拼版节点约涨 120~200 KB（取决于差分数量）。
+      // 所以改成：后端把素材存成 JPEG 放到 temp 目录，properties 里只存
+      // 几百字节的清单，重建时用 /api/view 取原图。
+      // 分辨率不再受 JSON 体积限制：主图和差分都按 1280 长边存（约 0.9MP）。
+      //
+      // 代价：temp 目录被清理后（通常重启 ComfyUI）快照失效，
+      // 会退回示意布局，跑一次即可恢复。
       // ---------------------------------------------------------------
-      const SNAP_KEY = "illustrious_sheet_snapshot";
-      const SNAP_MAIN = 640;      // 主图边长上限
-      const SNAP_VAR = 384;       // 单张差分
-      const SNAP_THUMB = 192;     // 小图
-      const SNAP_Q = 0.72;
+      const SNAP_KEY = "illustrious_sheet_snap_v2";
 
-      const shrinkDataUrl = (dataUrl, maxSide, quality) =>
-        new Promise((resolve) => {
-          try {
-            const im = new Image();
-            im.onload = () => {
-              const sc = Math.min(1, maxSide / Math.max(im.naturalWidth, im.naturalHeight));
-              const c = document.createElement("canvas");
-              c.width = Math.max(1, Math.round(im.naturalWidth * sc));
-              c.height = Math.max(1, Math.round(im.naturalHeight * sc));
-              c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-              resolve(c.toDataURL("image/jpeg", quality));
-            };
-            im.onerror = () => resolve(null);
-            im.src = dataUrl;
-          } catch (e) {
-            resolve(null);
-          }
+      const snapUrl = (entry, dir) => {
+        if (!entry) return null;
+        const name = String(entry).split("|")[0];
+        if (!name) return null;
+        const qs = new URLSearchParams({
+          filename: name,
+          subfolder: dir || "",
+          type: "temp",
         });
+        return `/api/view?${qs.toString()}`;
+      };
 
-      // 从已加载的 Image 对象反推一个可序列化的小 dataURL
-      const shrinkImage = (im, maxSide, quality) => {
+      const persistSnap = (raw) => {
+        // raw 是后端给的清单 JSON 字符串；只存清单，不存图片数据
+        if (!raw) return;
         try {
-          if (!im || !im.complete || im.naturalWidth <= 0) return Promise.resolve(null);
-          const sc = Math.min(1, maxSide / Math.max(im.naturalWidth, im.naturalHeight));
-          const c = document.createElement("canvas");
-          c.width = Math.max(1, Math.round(im.naturalWidth * sc));
-          c.height = Math.max(1, Math.round(im.naturalHeight * sc));
-          c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-          return Promise.resolve(c.toDataURL("image/jpeg", quality));
-        } catch (e) {
-          return Promise.resolve(null);
-        }
+          const snap = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (!snap || !snap.dir) return;
+          const text = JSON.stringify(snap);
+          node.properties = node.properties || {};
+          if (node.properties[SNAP_KEY] === text) return;
+          node.properties[SNAP_KEY] = text;
+          app.graph?.setDirtyCanvas?.(true, true);
+        } catch (e) {}
       };
 
-      let snapTimer = null;
-      const persistSnapshot = () => {
-        // 合并短时间内的多次调用，避免重复压缩
-        if (snapTimer) clearTimeout(snapTimer);
-        snapTimer = setTimeout(async () => {
-          try {
-            if (!st.mainImg || !st.mainImg.complete) return;
-            const [main, vars, thumbs] = await Promise.all([
-              shrinkImage(st.mainImg, SNAP_MAIN, SNAP_Q),
-              Promise.all(st.varImgs.map((im) => shrinkImage(im, SNAP_VAR, SNAP_Q))),
-              Promise.all(st.thumbImgs.map((im) => shrinkImage(im, SNAP_THUMB, SNAP_Q))),
-            ]);
-            const snap = {
-              v: 1,
-              canvas: [st.canvasW, st.canvasH],
-              rects: st.rects,
-              border: st.border,
-              bg: st.bg,
-              main,
-              vars: vars.filter(Boolean),
-              thumbs: thumbs.filter(Boolean),
-            };
-            const text = JSON.stringify(snap);
-            node.properties = node.properties || {};
-            if (node.properties[SNAP_KEY] === text) return;
-            node.properties[SNAP_KEY] = text;
-            app.graph?.setDirtyCanvas?.(true, true);
-          } catch (e) {}
-        }, 400);
-      };
-
-      // 工作流加载完成时重建快照
+      // 工作流加载完成时按清单重建画面
       const origOnConfigure = node.onConfigure;
       node.onConfigure = function (info) {
         const r = typeof origOnConfigure === "function"
@@ -457,7 +420,7 @@ app.registerExtension({
           const raw = node.properties?.[SNAP_KEY];
           if (!raw) return r;
           const snap = JSON.parse(raw);
-          if (!snap) return r;
+          if (!snap || !snap.dir) return r;
 
           if (snap.canvas) {
             st.canvasW = Number(snap.canvas[0]) || 0;
@@ -467,21 +430,22 @@ app.registerExtension({
           st.border = snap.border || 0;
           st.bg = snap.bg || "#202020";
 
-          const mk = (src, cb) => {
-            if (!src) return;
+          const mk = (entry, cb) => {
+            const u = snapUrl(entry, snap.dir);
+            if (!u) return;
             const im = new Image();
             im.onload = () => {
               cb(im);
               renderSheet();
             };
-            im.src = src;
+            im.src = u;
           };
 
           mk(snap.main, (im) => { st.mainImg = im; st._fallbackImg = im; });
           st.varImgs = [];
-          (snap.vars || []).forEach((src, i) => mk(src, (im) => (st.varImgs[i] = im)));
+          (snap.vars || []).forEach((e, i) => mk(e, (im) => (st.varImgs[i] = im)));
           st.thumbImgs = [];
-          (snap.thumbs || []).forEach((src, i) => mk(src, (im) => (st.thumbImgs[i] = im)));
+          (snap.thumbs || []).forEach((e, i) => mk(e, (im) => (st.thumbImgs[i] = im)));
           st.selected = Number(findWidget(node, "selected")?.value ?? 0);
         } catch (e) {}
         return r;

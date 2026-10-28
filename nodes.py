@@ -450,6 +450,7 @@ class IllustriousExpressionSheet:
                 "vars": ("IMAGE", {"tooltip": "差分整图（批处理：每张一个差分，用于切换/保存）"}),
                 "thumbs": ("IMAGE", {"tooltip": "脸部小图（批处理：每张一个差分，用于显示）"}),
             },
+            "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "INT")
@@ -466,6 +467,43 @@ class IllustriousExpressionSheet:
             return torch.tensor([int(s[i:i + 2], 16) / 255.0 for i in (0, 2, 4)])
         except Exception:
             return torch.tensor([0.125, 0.125, 0.125])
+
+    @staticmethod
+    def _save_snap_files(uid, main_img, fulls, thumbs, rects, W, H, border, bg_color):
+        """把拼版素材存成 JPEG 放到 temp 目录，返回给前端的清单（几百字节）。
+
+        只存文件名不存图片数据 —— 工作流 JSON 才不会被几 MB 的 base64 撑爆。
+        每次运行覆盖同名文件，不会无限增长。
+        """
+        import os
+
+        import folder_paths
+        from PIL import Image
+
+        rel = os.path.join("illustrious_sheet", str(uid or "0"))
+        root = os.path.join(folder_paths.get_temp_directory(), rel)
+        os.makedirs(root, exist_ok=True)
+
+        def save(t, name, max_side, q=90):
+            arr = (t[0].cpu().numpy() * 255.0).clip(0, 255).astype("uint8")
+            im = Image.fromarray(arr)
+            sc = min(1.0, float(max_side) / max(im.width, im.height))
+            if sc < 1.0:
+                im = im.resize((max(1, int(im.width * sc)), max(1, int(im.height * sc))),
+                               Image.LANCZOS)
+            im.save(os.path.join(root, name), "JPEG", quality=q, optimize=True)
+            return "%s|%d|%d" % (name, im.width, im.height)
+
+        # 主图和差分都放到 1280 长边：切换差分时看到的清晰度和主图一致
+        out = {"dir": rel.replace("\\", "/"),
+               "main": save(main_img, "main.jpg", 1280, 90),
+               "vars": [save(v, "var_%02d.jpg" % i, 1280, 90) for i, v in enumerate(fulls)],
+               "thumbs": [save(t, "thumb_%02d.jpg" % i, 384, 90) for i, t in enumerate(thumbs)],
+               "canvas": [int(W), int(H)],
+               "rects": rects,
+               "border": int(border),
+               "bg": str(bg_color)}
+        return out
 
     @staticmethod
     def _preview_b64(tensor, max_side=1280):
@@ -485,7 +523,7 @@ class IllustriousExpressionSheet:
         return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(), scale
 
     def run(self, main_image, enable, gap, border, var_scale, bg_color, border_color, selected,
-            vars=None, thumbs=None):
+            vars=None, thumbs=None, unique_id=None):
         import torch
         import torch.nn.functional as F
 
@@ -603,6 +641,14 @@ class IllustriousExpressionSheet:
                 ui["thumb_imgs"] = [self._preview_b64(t, 800)[0] for t in thumbs]
             except Exception as e:
                 print(f"[Illustrious-Sheet] thumb previews failed: {e}")
+            # 磁盘快照：前端把这串清单存进 properties，重开工作流时按 URL 取原图
+            try:
+                ui["snap"] = [json.dumps(
+                    self._save_snap_files(unique_id, main_image, fulls, thumbs,
+                                          rects, W, H, border, bg_color),
+                    ensure_ascii=False)]
+            except Exception as e:
+                print(f"[Illustrious-Sheet] snap save failed: {e}")
         except Exception as e:
             print(f"[Illustrious-Sheet] preview failed: {e}")
 
