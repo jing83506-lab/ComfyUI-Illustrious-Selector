@@ -274,7 +274,7 @@ bbox检测器和segm边缘检测器都偶尔会把脚趾、头发、或者身体
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone <this-repo> ComfyUI-Illustrious-Selector
+git clone https://github.com/jing83506-lab/ComfyUI-Illustrious-Selector
 ```
 
 **无额外 Python 依赖**（只用 ComfyUI 自带的 torch / numpy / Pillow）。
