@@ -62,6 +62,7 @@ This solves the disk-space problem when you have many expression variations.
 | Node | Description |
 |---|---|
 | **Character / Action Selector** | Character table + action table; outputs `prompt` and `lora_spec`, drives LoRA loading automatically |
+| **Anima Character / Action Selector** | Same, but with its own data files (`anima_*.json`). Anima character LoRAs and trigger words are entirely different from Illustrious ones; mixing them feeds the wrong LoRA into the prompt |
 | **Prompt Display** | Read-only display of the current prompt |
 | **LoRA Stack** | Batch-loads LoRAs from `lora_spec`; outputs model / clip |
 | **Scene Tag Filter** | Filters Danbooru tags by category whitelist; by default keeps only scene / object / pose |

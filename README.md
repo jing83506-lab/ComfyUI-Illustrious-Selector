@@ -49,6 +49,7 @@ bbox检测器和segm边缘检测器都偶尔会把脚趾、头发、或者身体
 | 节点 | 说明 |
 |---|---|
 | **角色 / 动作选择器** | 角色表 + 动作表，输出 `prompt` 与 `lora_spec`，自动驱动 LoRA 加载 |
+| **Anima 角色 / 动作选择器** | 功能同上，但数据源独立（`anima_*.json`）。Anima 的角色 LoRA 与触发词和 Illustrious 完全不同，混用会把错误的 LoRA 塞进提示词 |
 | **提示词显示** | 只读展示当前提示词 |
 | **LoRA 堆栈** | 按 `lora_spec` 批量加载 LoRA，输出 model / clip |
 | **场景标签过滤** | 把 Danbooru tag 按类别白名单过滤，默认只留场景 / 物品 / 姿势 |
