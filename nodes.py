@@ -2138,3 +2138,86 @@ class IllustriousSamBrowDetector:
             sam_bbox_expansion=sam_bbox_expansion,
             sam_dilation=sam_dilation,
         ),)
+
+# ---------------------------------------------------------------- HTTP 路由
+# 前端 illustrious_selector.js 会调用这三个接口；之前函数写好了但没挂路由，
+# 导致「保存 / 收藏」按钮一律 404。这里补上注册。
+_ROUTES_DONE = False
+
+
+def _register_routes():
+    global _ROUTES_DONE
+    if _ROUTES_DONE:
+        return
+    try:
+        from aiohttp import web
+        from server import PromptServer
+        routes = PromptServer.instance.routes
+    except Exception as e:                     # 非 ComfyUI 环境下直接跳过
+        print(f"[Illustrious-Selector] 路由注册跳过: {type(e).__name__}: {e}")
+        return
+
+    @routes.post('/illustrious_selector/save')
+    async def _ill_save(request):
+        try:
+            d = await request.json()
+        except Exception:
+            d = {}
+        name = str(d.get('name') or '').strip()
+        prompt = str(d.get('prompt') or '').strip()
+        character = str(d.get('character') or '').strip()
+        lora = str(d.get('lora') or '').strip()
+        try:
+            weight = float(d.get('lora_weight', 1.0))
+        except Exception:
+            weight = 1.0
+
+        ok = False
+        err = ''
+        lora_target = character
+        try:
+            if name and prompt:
+                ok = bool(save_custom(name, prompt)) or ok
+                lora_target = name
+            if lora and (character or name):
+                ok = bool(save_char_lora(character or name, lora, weight)) or ok
+            elif character and not lora:
+                pass                            # 只解绑时会单独走
+        except Exception as e:
+            err = f'{type(e).__name__}: {e}'
+        if not ok and not err:
+            err = '没有可保存的内容'
+        return web.json_response({'ok': ok, 'characters': char_keys(),
+                                  'lora_target': lora_target, 'error': err})
+
+    @routes.post('/illustrious_selector/favorite')
+    async def _ill_fav(request):
+        try:
+            d = await request.json()
+        except Exception:
+            d = {}
+        name = str(d.get('name') or '').strip()
+        ok, favs = False, load_favorites()
+        err = ''
+        try:
+            ok, favs = toggle_favorite(name)
+        except Exception as e:
+            err = f'{type(e).__name__}: {e}'
+        return web.json_response({'ok': bool(ok), 'characters': char_keys(),
+                                  'favorites': favs, 'error': err})
+
+    @routes.get('/illustrious_selector/char_image')
+    async def _ill_char_image(request):
+        name = request.query.get('name', '')
+        image = ''
+        try:
+            image = character_thumb(name) or ''
+        except Exception as e:
+            print(f"[Illustrious-Selector] char_image 失败: {e}")
+        return web.json_response({'ok': bool(image), 'image': image})
+
+    _ROUTES_DONE = True
+    print("[Illustrious-Selector] 已注册 3 个 HTTP 路由")
+
+
+_register_routes()

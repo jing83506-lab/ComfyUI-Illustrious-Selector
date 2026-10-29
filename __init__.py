@@ -16,6 +16,8 @@ Illustrious / SDXL 系「高清修复 + 手脸修复 + 表情差分」工作流�
 
 import os
 
+from .anima_selector import AnimaCharacterActionSelector
+
 from .nodes import (
     IllustriousCharacterActionSelector,
     IllustriousPromptDisplay,
@@ -66,6 +68,7 @@ except Exception as _e:
 NODE_CLASS_MAPPINGS = {
     # --- 提示词 ---
     "IllustriousCharacterActionSelector": IllustriousCharacterActionSelector,
+    "AnimaCharacterActionSelector": AnimaCharacterActionSelector,
     "IllustriousPromptDisplay": IllustriousPromptDisplay,
     "IllustriousLoraStack": IllustriousLoraStack,
     "IllustriousSceneTags": IllustriousSceneTags,
@@ -91,6 +94,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "IllustriousCharacterActionSelector": "角色 / 动作选择器",
+    "AnimaCharacterActionSelector": "Anima 角色 / 动作选择器",
     "IllustriousPromptDisplay": "提示词显示",
     "IllustriousLoraStack": "LoRA 堆栈",
     "IllustriousSceneTags": "场景标签过滤（白名单分类）",
